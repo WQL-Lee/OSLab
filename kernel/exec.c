@@ -7,6 +7,8 @@
 #include "defs.h"
 #include "elf.h"
 
+// extern struct proc proc[];
+
 static int loadseg(pde_t *pgdir, uint64 addr, struct inode *ip, uint offset, uint sz);
 
 int
@@ -115,6 +117,16 @@ exec(char *path, char **argv)
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
+
+  // 获取在一个命令在exec语句执行完以后，打印当前所有进程的属性
+  // printf("Exec| name: %s\t pid: %d\n", p->name, p->pid);
+  // struct proc * nnp;
+  // for(nnp = proc; nnp < &proc[NPROC]; nnp++){
+  //   // p->mask = mask;
+  //   if ((nnp->name)[0] != '\0'){
+  //     printf("System call: %s\t Mask: %d\n", nnp->name, nnp->mask);}
+  // }
+
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 

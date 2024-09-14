@@ -95,3 +95,17 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 
+sys_trace(void){
+  int mask;
+  
+  if(argint(0, &mask)<0){
+    return -1;
+  };
+  
+  // 测试trace系统调用是否成功
+  // printf("test trace system call: %d\n", mask);
+
+  return trace(mask);
+}

@@ -10,6 +10,8 @@ struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
+extern struct proc proc[];
+
 struct proc *initproc;
 
 int nextpid = 1;
@@ -37,6 +39,8 @@ proc_mapstacks(pagetable_t kpgtbl) {
     char *pa = kalloc();
     if(pa == 0)
       panic("kalloc");
+    // printf("Allocated KStack: (p: %x -proc: %x): %d\n",p, proc, p-proc);
+    // printf("Allocated KStack: (p: %d -proc:%d): %d\n",p, proc, p-proc);
     uint64 va = KSTACK((int) (p - proc));
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
@@ -276,6 +280,7 @@ fork(void)
   struct proc *np;
   struct proc *p = myproc();
 
+
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
@@ -314,6 +319,8 @@ fork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
+
+  np->mask = p->mask;
 
   return pid;
 }
@@ -654,3 +661,35 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+int trace(int mask){
+
+  // struct proc * p;
+  // for(p = proc; p < &proc[NPROC]; p++){
+  //   p->mask = mask;
+  //   if ((p->name)[0] != '\0'){
+  //     printf("System call: %s\t Mask: %d\n", p->name, p->mask);}
+  // }
+
+  myproc()->mask = mask;
+  struct proc * p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    // p->mask = mask;
+    if ((p->name)[0] != '\0'){
+      printf("System call: %s\t Mask: %d\n", p->name, p->mask);}
+  }
+  return 0;
+}
+
+int cntprocess(void){
+  int cnt = 0;
+  struct proc *p;
+  for (p= proc; p < &proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    ++cnt;
+  }
+  return cnt;
+}
+

@@ -484,3 +484,13 @@ sys_pipe(void)
   }
   return 0;
 }
+
+
+uint64
+sys_sysinfo(void){
+  uint64 si;
+  if(argaddr(0, &si)<0){
+    return -1;
+  }
+  return nsysinfo(si);
+}

@@ -12,6 +12,7 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 struct devsw devsw[NDEV];
 struct {
@@ -99,6 +100,19 @@ filestat(struct file *f, uint64 addr)
     return 0;
   }
   return -1;
+}
+
+int nsysinfo(uint64 addr){
+  struct proc *p = myproc();
+  struct sysinfo si;
+  // printf("Enter nsysinfo\n");
+  si.freemem = cntfreemem();
+  si.nproc= cntprocess();
+  if (copyout(p->pagetable, addr, (char *)&si, sizeof(si)) < 0){
+    return -1;
+  }
+  // printf("free memory: %d\t process: %d\n", si.freemem, si.nproc);
+  return 0;
 }
 
 // Read from file f.
