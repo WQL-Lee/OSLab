@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "mutex": "c",
+        "condition_variable": "c",
+        "defs.h": "c",
+        "types.h": "c",
+        "sysinfo.h": "c",
+        "file.h": "c",
+        "fs.h": "c",
+        "param.h": "c"
+    }
+}
