@@ -117,6 +117,7 @@ printf(char *fmt, ...)
 void
 panic(char *s)
 {
+  backtrace();
   pr.locking = 0;
   printf("panic: ");
   printf(s);
@@ -131,4 +132,22 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void backtrace(void){
+    uint64 fp= r_fp();
+    uint64 cur_addr = fp;
+    while (cur_addr < PGROUNDUP(fp)){
+      uint64 pre_fp= cur_addr-16;
+      uint64 ra = * (uint64 *)(cur_addr-8);
+      printf("%p\n", ra);
+      cur_addr = *(uint64 *)pre_fp;
+    }
+
+    // uint64 fp = r_fp();
+    // while(fp != PGROUNDUP(fp)) { // 如果已经到达栈底
+    //   uint64 ra = *(uint64*)(fp - 8); // return address
+    //   printf("%p\n", ra);
+    //   fp = *(uint64*)(fp - 16); // previous fp
+    // }
 }

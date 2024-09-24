@@ -44,6 +44,10 @@ test0()
 {
   int i;
   printf("test0 start\n");
+  // void *functionAddress = (void *)&periodic;
+  // printf("The periodic address is in : %x\n", functionAddress);
+  // functionAddress = (void *)&test1;
+  // printf("The test1 address is in : %x\n", functionAddress);
   count = 0;
   sigalarm(2, periodic);
   for(i = 0; i < 1000*500000; i++){

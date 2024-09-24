@@ -82,6 +82,9 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// 定义指向函数的指针类型
+typedef void (*FuncHandler)();
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -105,4 +108,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  uint64 alarm_interval;
+  // FuncHandler handler;
+  void (*handler)(); 
+  uint64 alarm_passed;
+  struct trapframe *stf;
+  int is_alarm_running;
+
 };
