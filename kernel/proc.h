@@ -110,10 +110,8 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   uint64 alarm_interval;
-  // FuncHandler handler;
-  void (*handler)(); 
+  FuncHandler handler;
   uint64 alarm_passed;
   struct trapframe *stf;
   int is_alarm_running;
-
 };

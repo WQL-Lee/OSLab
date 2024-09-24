@@ -164,6 +164,12 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+
+  if (p->stf)
+    kfree((void*)p->stf);
+  p->stf = 0;
+
+
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -180,7 +186,6 @@ freeproc(struct proc *p)
   p->alarm_passed=0;
   p->handler = 0;
   p->is_alarm_running = 0;
-
 }
 
 // Create a user page table for a given process,
@@ -675,6 +680,5 @@ procdump(void)
 void sigalarm(uint64 ticks, uint64 handler){
   struct proc *p = myproc();
   p->alarm_interval = ticks;
-  // p-> handler = (FuncHandler)handler;
-  p-> handler = (void (*)())handler;
+  p-> handler = (FuncHandler)handler;
 }
