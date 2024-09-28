@@ -5,6 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+// #include "kalloc_macros.h"
 
 /*
  * the kernel's page table.
@@ -291,6 +292,12 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+void refcnt_inc(void* pa){
+  // acquire(&refcnt_lock);
+  PG_REFCNT(pa)++;
+  // release(&refcnt_lock);
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
 // Copies both the page table and the
@@ -303,28 +310,99 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+    // pa = PTE2PA(*pte);
+    // flags = PTE_FLAGS(*pte);
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    // if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+    //   kfree(mem);
+    //   goto err;
+    // }
     pa = PTE2PA(*pte);
+    *pte= *pte& ~PTE_W; //设置不可写
+    *pte = *pte | PTE_COW; // 说明这是一个COW页面
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
-      goto err;
+
+    if (mappages(new, i, PGSIZE, pa, flags) <0){
+      // 说明映射失败，需要释放映射的页面
+      // 此时不需要释放虚拟地址对应的物理地址内容，因为并没有分配
+      printf("map failed\n");
+      uvmunmap(new, 0, i / PGSIZE, 1);
+      return -1;
     }
+    refcnt_inc((void*)pa);    
   }
+
+  // printf("parent: \n");
+  // vmprint(old);
+  // printf("child:\n");
+  // vmprint(new);
+
   return 0;
 
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
+}
+
+// check if the pte in va is a cow or not
+int is_cow(pagetable_t pagetable, uint64 va){
+   pte_t * pte;
+  //  uint64 pa;
+   if (va > MAXVA){
+    return 0;
+   }
+
+   pte = walk(pagetable, va, 1);
+   if (pte ==0){
+    // 说明无法找到对应的pte项
+    return 0;
+   }
+
+   if ((*pte& PTE_V) == 0){
+    // 说明页面无效
+    return 0;
+   }
+
+   
+   if ((*pte& PTE_U) == 0){
+    // 说明页面无法在用户空间使用
+    return 0;
+   }
+   return *pte & PTE_COW;
+}
+
+// allocate the new pysical address for cow page
+int alloc_cow(pagetable_t pgtbl, uint64 va){
+  pte_t* pte = walk(pgtbl, va, 0);
+  uint64 perm = PTE_FLAGS(*pte);
+
+  if(pte == 0) return -1;
+  uint64 prev_sta = PTE2PA(*pte); // 这里的 prev_sta 就是这个页帧原来使用的父进程的页表
+                                  // 这里写 sta 是因为这个地址是和页帧对齐的（page-aligned）
+                                  // 所以写个 sta 表示一个页帧的开始
+  char* newpage = kalloc();     
+  if(!newpage){
+    return -1;
+  }
+  uint64 va_sta = PGROUNDDOWN(va); // 当前页帧
+
+  perm &= (~PTE_COW); // 复制之后就不是合法的 COW 页了
+  perm |= PTE_W;    // 复制之后就可以写了
+
+  memmove(newpage, (char *)prev_sta, PGSIZE); // 把父进程页帧的数据复制一遍
+  uvmunmap(pgtbl, va_sta, 1, 1);      // 然后取消对父进程页帧的映射
+  
+  if(mappages(pgtbl, va_sta, PGSIZE, (uint64)newpage, perm) < 0){
+    kfree(newpage);
+    return -1;
+  }
+  return 0;
 }
 
 // mark a PTE invalid for user access.
@@ -350,6 +428,11 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
+    if(is_cow(pagetable, va0)){          // 注意这里是新加的
+      if (alloc_cow(pagetable,va0) < 0){return -1;}
+      // try(alloc_cow(pagetable, va0), return -1);
+    }
+
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
@@ -431,4 +514,29 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+void printdot(pte_t pte,int i,  int level){
+    if (level==0){printf(".. %d: pte %p pa %p\n", i, pte, PTE2PA(pte));}
+    else if (level==1){printf(".. .. %d: pte %p pa %p\n", i, pte, PTE2PA(pte));}
+    else if (level==2){printf(".. .. .. %d: pte %p pa %p\n", i, pte, PTE2PA(pte));}
+}
+void dfsprint(pagetable_t pagetable, int level){
+
+    for(int i =0; i < 512; ++i){
+      pte_t  pte = pagetable[i];
+      if ((pte &PTE_V) && (pte & (PTE_R|PTE_W|PTE_X))==0){
+        uint64 child = PTE2PA(pte);
+        printdot(pte,i,  level);
+        dfsprint((pagetable_t) child, level+1);
+      }
+      else if (pte & PTE_V){
+          printdot(pte,i,  level);
+      }
+    }
+}
+
+void vmprint(pagetable_t pagetable){
+    printf("page table %p\n", pagetable);
+    dfsprint(pagetable,0);
 }

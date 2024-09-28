@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
+int pg_refcnt[MX_PGIDX];
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -39,6 +40,16 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
+int cnt_free_pg(){
+  int cnt = 0;
+  struct run* ptr = kmem.freelist;
+  while (ptr){
+    cnt++;
+    ptr = ptr->next;
+  }
+  return cnt;
+}
+
 // Free the page of physical memory pointed at by v,
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
@@ -51,16 +62,20 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  if (--PG_REFCNT(pa) <= 0){
+    // Fill with junk to catch dangling refs.
+    memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
+    r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+
+    release(&kmem.lock);
+  }
 }
+
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
@@ -76,7 +91,9 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
+    PG_REFCNT(r) = 1;
+  }
   return (void*)r;
 }

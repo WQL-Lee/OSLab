@@ -74,7 +74,8 @@ int
 main(int argc, char *argv[])
 {
   int i;
-
+  printf("The process info: \n");
+  printpids();
   if(argc < 2){
     ls(".");
     exit(0);

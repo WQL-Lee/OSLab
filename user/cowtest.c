@@ -22,7 +22,7 @@ simpletest()
     printf("sbrk(%d) failed\n", sz);
     exit(-1);
   }
-
+  printf("allocated success\n");
   for(char *q = p; q < p + sz; q += 4096){
     *(int*)q = getpid();
   }
@@ -32,9 +32,10 @@ simpletest()
     printf("fork() failed\n");
     exit(-1);
   }
-
-  if(pid == 0)
+  printf("fork success\n");
+  if(pid == 0){
     exit(0);
+  }
 
   wait(0);
 

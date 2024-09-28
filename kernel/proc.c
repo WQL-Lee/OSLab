@@ -342,6 +342,8 @@ exit(int status)
   struct proc *p = myproc();
 
   if(p == initproc)
+    // printf("pid: %d", p->pid);
+    // vmprint(p->pagetable);
     panic("init exiting");
 
   // Close all open files.
@@ -653,4 +655,15 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+
+int printpids(void){
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; ++p){
+    // printf("The process %d, name: %s\n", p->pid, p->name);
+    if(p->state != UNUSED)
+      printf("The process %d, name: %s, state: %d\n", p->pid, p->name, p->state);
+  }
+  return 0;
 }

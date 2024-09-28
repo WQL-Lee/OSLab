@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "atomic": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "sstream": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "proc.h": "c"
+    }
+}
