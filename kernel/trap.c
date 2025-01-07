@@ -33,6 +33,53 @@ trapinithart(void)
 void Lttt(){
   printf("Ltest\n");
 }
+
+void cow_impl(){
+
+    /*---------------ref_impl-----------------------*/ 
+  // if(alloc_cow(p->pagetable, r_stval()) < 0){
+  //   p->killed = 1;
+  // }
+  /*---------------ref_impl-----------------------*/ 
+  struct proc *p = myproc();
+      // printf("catch page fault error\n");
+    //在这个地方复制父进程的物理页面
+  pte_t *pte;
+  uint64 pa;
+  uint64 perm;
+  char *mem;
+  uint64 va =PGROUNDDOWN( r_stval()); // 注意对齐页帧
+  // printf("va: %p\n", va);
+  if((pte= walk(p->pagetable,va, 0))==0)
+    panic("cowcopy: pte should exist.\n");
+  if((*pte &PTE_V) == 0){
+    panic("cowcopy: page not present\n");
+  }
+
+  uint64 flags = PTE_FLAGS(*pte);
+  // 设置页面可写
+  perm = flags | PTE_W; 
+  // 清除页面COW位
+  perm = perm & ~PTE_COW;
+
+  // 将原先位于pa处的数据，拷贝到新的地址mem
+  pa = PTE2PA(*pte);
+
+  mem = kalloc();
+  memmove(mem, (char*)pa, PGSIZE);
+
+  // 解除va与原始的pa地址的映射关系，注意页面对齐
+  uvmunmap(p->pagetable, PGROUNDDOWN(va), 1,1);
+
+  // 将当前虚拟地址映射到mem处
+  if(mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)mem, perm) !=0){
+    printf( "cow map pages failed\n");
+    kfree(mem);
+    p->killed = 1;
+  }
+
+  // printf("finished copy.\n");
+}
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -69,53 +116,22 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if (r_scause()==15 && is_cow(p->pagetable, r_stval())){
+  } else if (r_scause()==15){
+     if(is_cow(p->pagetable, r_stval())){
+      cow_impl();
+     }else{
+        // panic("catch page fault!\n");
+        uint64 va = PGROUNDDOWN(r_stval());
+        char *mem=kalloc();
+        memset((void*)mem, 0, PGSIZE);
+        // int perm = PTE_FLAGS(r_stval());
+        if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, PTE_R|PTE_W|PTE_U) != 0){
+          kfree((void*)mem);
+          panic("map failed\n");
+          p->killed = 1;
+        }
+     }
     
-    
-    /*---------------ref_impl-----------------------*/ 
-    // if(alloc_cow(p->pagetable, r_stval()) < 0){
-    //   p->killed = 1;
-    // }
-    /*---------------ref_impl-----------------------*/ 
-
-    // printf("catch page fault error\n");
-    //在这个地方复制父进程的物理页面
-    pte_t *pte;
-    uint64 pa;
-    uint64 perm;
-    char *mem;
-    uint64 va =PGROUNDDOWN( r_stval()); // 注意对齐页帧
-    // printf("va: %p\n", va);
-    if((pte= walk(p->pagetable,va, 0))==0)
-      panic("cowcopy: pte should exist.\n");
-    if((*pte &PTE_V) == 0){
-      panic("cowcopy: page not present\n");
-    }
-
-    uint64 flags = PTE_FLAGS(*pte);
-    // 设置页面可写
-    perm = flags | PTE_W; 
-    // 清除页面COW位
-    perm = perm & ~PTE_COW;
-
-    // 将原先位于pa处的数据，拷贝到新的地址mem
-    pa = PTE2PA(*pte);
-
-    mem = kalloc();
-    memmove(mem, (char*)pa, PGSIZE);
-
-    // 解除va与原始的pa地址的映射关系，注意页面对齐
-    uvmunmap(p->pagetable, PGROUNDDOWN(va), 1,1);
-
-    // 将当前虚拟地址映射到mem处
-    if(mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)mem, perm) !=0){
-      printf( "cow map pages failed\n");
-      kfree(mem);
-      p->killed = 1;
-    }
-
-  // printf("finished copy.\n");
-
   }else if((which_dev = devintr()) != 0){
     // ok
   } else {
