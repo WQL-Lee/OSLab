@@ -320,6 +320,7 @@ fork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  // copy the mask for trace
   np->mask = p->mask;
 
   return pid;
