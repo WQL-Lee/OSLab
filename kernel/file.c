@@ -108,6 +108,8 @@ int nsysinfo(uint64 addr){
   // printf("Enter nsysinfo\n");
   si.freemem = cntfreemem();
   si.nproc= cntprocess();
+
+  // 使用copyout的原因是什么？
   if (copyout(p->pagetable, addr, (char *)&si, sizeof(si)) < 0){
     return -1;
   }

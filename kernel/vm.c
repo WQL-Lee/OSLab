@@ -343,6 +343,14 @@ uvmclear(pagetable_t pagetable, uint64 va)
 // Copy from kernel to user.
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
+// copyout的作用： 在用户空间我们创建了一个对象，我们将内核空间对应的信息，放置在用户空间的对象之中，相当于用户空间传入了一个传出参数
+/* 使用copyout的原因：
+  用户空间和内核空间实际上拥有不同的地址空间，即拥有不同的页表，从用户空间到内核空间，倘若地址直接解引用，会发生问题，
+  因此干脆使用物理地址进行复制，将物理地址对应的内容复制到合适的位置。
+  值得注意的是，由于内核空间使用的是恒等映射，因此内核虚拟地址== 物理地址，
+  这也就是为什么 memmove((void *)(pa0 + (dstva - va0)), src, n);能够正常执行的原因。这里面的src是在内核空间创建的一个对象的地址，也即内核的物理地址，
+  (void *)(pa0 + (dstva - va0))则是指代的用户空间的对象所在的物理地址。
+*/
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
