@@ -283,6 +283,32 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
+int recursive_open(char * path, int levels, struct inode ** deep_ip){
+  if(levels >10){
+    return -1;
+  }
+  struct inode *ip;
+  if((ip = namei(path)) == 0){
+    // "cannot find the file"
+    // printf("cannot find the ip\n");
+    return -1;
+  }
+
+  if(ip->type == T_SYMLINK){
+    char npath[MAXPATH];
+    strncpy(npath, ip->path, MAXPATH);
+    return recursive_open(npath, levels+1, deep_ip);
+  }
+  // printf("Get\n");
+  if(ip->type == T_FILE){
+    *deep_ip = ip;
+    // printf("ip->path: %s\n", (*deep_ip)->path);
+  }
+  // printf("Finished\n");
+  return 0;
+}
+
+
 uint64
 sys_open(void)
 {
@@ -308,6 +334,19 @@ sys_open(void)
       end_op();
       return -1;
     }
+    if(ip->type == T_SYMLINK){
+    struct inode *nip=0;
+    if(!(omode & O_NOFOLLOW)){
+      if(recursive_open(ip->path, 1, &nip) == -1){
+        end_op();
+        return -1;
+      }
+      // printf("something\n");
+      // printf("Get true ip: %p\n", nip->type); 
+      ip = nip; 
+    }
+    // printf("RTTTTT\n");
+  }
     ilock(ip);
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
@@ -482,5 +521,26 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  return 0;
+}
+
+uint64 
+sys_symlink(void)
+{
+
+  struct inode *ip;
+  char target[MAXPATH], path[MAXPATH];
+
+  begin_op();
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0|| (ip = create(path, T_SYMLINK, 0, 0)) == 0){
+    end_op();
+    return -1;
+  }
+  // printf("Target: %s\t Path: %s\n", target, path);
+  strncpy(ip->path, target, MAXPATH);
+  // printf("something\n");
+  iunlockput(ip);
+  end_op();
+  
   return 0;
 }
