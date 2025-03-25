@@ -61,6 +61,7 @@ pgaccess_test()
   buf[PGSIZE * 1] += 1;
   buf[PGSIZE * 2] += 1;
   buf[PGSIZE * 30] += 1;
+  printf("mypid: %d\n", getpid());
   if (pgaccess(buf, 32, &abits) < 0)
     err("pgaccess failed");
   printf("the abits is %x\n", abits);
