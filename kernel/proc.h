@@ -109,9 +109,15 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 
-  uint64 alarm_interval;
-  FuncHandler handler;
-  uint64 alarm_passed;
-  struct trapframe *stf;
-  int is_alarm_running;
+  // uint64 alarm_interval;
+  // FuncHandler handler;
+  // uint64 alarm_passed;
+  // struct trapframe *stf;
+  // int is_alarm_running;
+
+  uint64 ticks;
+  uint64 ticks_cnt;
+  uint64 handler;
+  struct trapframe *tick_trapframe;
+  int alarm_running;
 };

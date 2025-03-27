@@ -127,12 +127,6 @@ found:
     return 0;
   }
 
-    // Allocate a trapframe page for alarm_trapframe.
-  if((p->stf = (struct trapframe *)kalloc()) == 0){
-    release(&p->lock);
-    return 0;
-  }
-
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -147,10 +141,18 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
-  p->alarm_interval=0;
-  p->alarm_passed=0;
-  p->handler = 0;
-  p->is_alarm_running = 0;
+  // p->alarm_interval=0;
+  // p->alarm_passed=0;
+  // p->handler = 0;
+  // p->is_alarm_running = 0;
+
+  p->ticks_cnt = 0;
+  p->alarm_running = 0;
+  // Allocate a trapframe page for alarm_trapframe.
+  if((p->tick_trapframe = (struct trapframe *)kalloc()) == 0){
+    release(&p->lock);
+    return 0;
+  }
 
   return p;
 }
@@ -165,9 +167,9 @@ freeproc(struct proc *p)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
 
-  if (p->stf)
-    kfree((void*)p->stf);
-  p->stf = 0;
+  if(p->tick_trapframe)
+    kfree((void*)p->tick_trapframe);
+  p->tick_trapframe = 0;
 
 
   if(p->pagetable)
@@ -182,10 +184,10 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
 
-  p->alarm_interval=0;
-  p->alarm_passed=0;
+  p->ticks=0;
+  p->ticks_cnt=0;
   p->handler = 0;
-  p->is_alarm_running = 0;
+  p->alarm_running= 0;
 }
 
 // Create a user page table for a given process,
@@ -679,6 +681,9 @@ procdump(void)
 
 void sigalarm(uint64 ticks, uint64 handler){
   struct proc *p = myproc();
-  p->alarm_interval = ticks;
-  p-> handler = (FuncHandler)handler;
+  // p->alarm_interval = ticks;
+  // p-> handler = (FuncHandler)handler;
+
+  p->handler = handler;
+  p->ticks = ticks;
 }

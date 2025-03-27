@@ -116,9 +116,12 @@ sys_sigalarm(void){
 
 uint64 
 sys_sigreturn(void){
-  struct proc *p = myproc();
-  *p->trapframe = *p->stf;
-  p->is_alarm_running = 0;
+  // struct proc *p = myproc();
+  // *p->trapframe = *p->stf;
+  // p->is_alarm_running = 0;
+  struct proc * p = myproc();
+  memmove(p->trapframe, p->tick_trapframe, sizeof(*(p->tick_trapframe)));
+  p->alarm_running = 0;
   return 0;
 }
 
